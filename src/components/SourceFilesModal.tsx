@@ -291,16 +291,16 @@ export const SourceFilesModal: React.FC<SourceFilesModalProps> = ({
                   key={source.id}
                   className="p-3 bg-white dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 rounded-xl flex items-center justify-between"
                 >
-                  <div className="flex items-center gap-3 min-w-0 flex-1">
-                    <FileText size={16} className="text-blue-500 shrink-0" />
-                    <div className="min-w-0 flex-1">
-                      <div className="flex items-center gap-2">
-                        <span className="text-[13px] font-semibold text-slate-800 dark:text-slate-200 truncate">
+                  <div className="flex items-start gap-3 min-w-0 flex-1">
+                    <FileText size={16} className="text-blue-500 shrink-0 mt-0.5" />
+                    <div className="min-w-0 flex-1 pr-2">
+                      <div className="flex items-start justify-between gap-2">
+                        <span className="text-[13px] font-semibold text-slate-800 dark:text-slate-200 line-clamp-2 break-all" title={source.name}>
                           {source.name}
                         </span>
-                        <Badge variant="secondary" className="text-[10px]">{source.type?.toUpperCase()}</Badge>
+                        <Badge variant="secondary" className="text-[10px] shrink-0">{source.type?.toUpperCase()}</Badge>
                       </div>
-                      <p className="text-[11px] text-slate-400">
+                      <p className="text-[11px] text-slate-400 mt-0.5">
                         {source.size} • {source.uploadedAt}
                       </p>
                     </div>

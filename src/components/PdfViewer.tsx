@@ -17,6 +17,128 @@ interface PdfViewerProps {
   onOpenInOS?: () => void;
 }
 
+interface PdfContinuousPageProps {
+  doc: any;
+  pageNumber: number;
+  scale: number;
+  rotation: number;
+  onVisible?: (pageNumber: number) => void;
+}
+
+const PdfContinuousPage: React.FC<PdfContinuousPageProps> = ({
+  doc,
+  pageNumber,
+  scale,
+  rotation,
+  onVisible,
+}) => {
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+  const wrapperRef = useRef<HTMLDivElement>(null);
+  const renderTaskRef = useRef<any>(null);
+  const [rendered, setRendered] = useState(false);
+  const [dimensions, setDimensions] = useState<{ width: number; height: number }>({ width: 600, height: 800 });
+
+  // 1. Initial page dimensions placeholder
+  useEffect(() => {
+    let cancelled = false;
+    doc.getPage(pageNumber).then((page: any) => {
+      if (cancelled) return;
+      const viewport = page.getViewport({ scale, rotation });
+      setDimensions({ width: Math.floor(viewport.width), height: Math.floor(viewport.height) });
+    }).catch(() => {});
+    return () => { cancelled = true; };
+  }, [doc, pageNumber, scale, rotation]);
+
+  // 2. Intersection observer to trigger render and track visible page
+  useEffect(() => {
+    const el = wrapperRef.current;
+    if (!el) return;
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        entries.forEach((entry) => {
+          if (entry.isIntersecting) {
+            onVisible?.(pageNumber);
+            setRendered(true);
+          }
+        });
+      },
+      { rootMargin: '300px 0px 300px 0px', threshold: 0.1 }
+    );
+
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, [pageNumber, onVisible]);
+
+  // 3. Render page onto canvas
+  useEffect(() => {
+    if (!rendered || !doc) return;
+    let isCancelled = false;
+
+    async function render() {
+      if (renderTaskRef.current) {
+        try { renderTaskRef.current.cancel(); } catch {}
+      }
+      try {
+        const page = await doc.getPage(pageNumber);
+        if (isCancelled) return;
+        const canvas = canvasRef.current;
+        if (!canvas) return;
+        const ctx = canvas.getContext('2d', { alpha: false });
+        if (!ctx) return;
+
+        const viewport = page.getViewport({ scale, rotation });
+        const outputScale = window.devicePixelRatio || 1;
+
+        canvas.width = Math.floor(viewport.width * outputScale);
+        canvas.height = Math.floor(viewport.height * outputScale);
+        canvas.style.width = `${Math.floor(viewport.width)}px`;
+        canvas.style.height = `${Math.floor(viewport.height)}px`;
+
+        const transform = outputScale !== 1 ? [outputScale, 0, 0, outputScale, 0, 0] : null;
+        const renderContext = {
+          canvasContext: ctx,
+          transform: transform || undefined,
+          viewport,
+        };
+        const task = page.render(renderContext);
+        renderTaskRef.current = task;
+        await task.promise;
+      } catch (err: any) {
+        if (err?.name !== 'RenderingCancelledException') {
+          console.error(`Render error on page ${pageNumber}:`, err);
+        }
+      }
+    }
+
+    render();
+
+    return () => {
+      isCancelled = true;
+      if (renderTaskRef.current) {
+        try { renderTaskRef.current.cancel(); } catch {}
+      }
+    };
+  }, [doc, pageNumber, scale, rotation, rendered]);
+
+  return (
+    <div
+      ref={wrapperRef}
+      id={`pdf-page-${pageNumber}`}
+      style={{
+        width: dimensions.width,
+        minHeight: dimensions.height,
+      }}
+      className="relative mb-6 mx-auto bg-white rounded-sm shadow-xl dark:shadow-2xl dark:shadow-black/70 border border-slate-300/70 dark:border-slate-700 select-text"
+    >
+      <canvas ref={canvasRef} className="rounded-sm block" />
+      <div className="absolute bottom-2 right-3 px-2 py-0.5 rounded bg-slate-900/60 text-white font-mono text-[10px] pointer-events-none backdrop-blur-xs">
+        Page {pageNumber}
+      </div>
+    </div>
+  );
+};
+
 export const PdfViewer: React.FC<PdfViewerProps> = ({
   data,
   base64,
@@ -31,6 +153,7 @@ export const PdfViewer: React.FC<PdfViewerProps> = ({
   const [pageInput, setPageInput] = useState<string>('1');
   const [scale, setScale] = useState<number>(1.2);
   const [rotation, setRotation] = useState<number>(0);
+  const [scrollMode, setScrollMode] = useState<'single' | 'continuous'>('continuous');
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [renderError, setRenderError] = useState<string | null>(null);
   const [showThumbnails, setShowThumbnails] = useState<boolean>(false);
@@ -207,6 +330,12 @@ export const PdfViewer: React.FC<PdfViewerProps> = ({
     const pageNum = Math.max(1, Math.min(numPages, p));
     setCurrentPage(pageNum);
     setPageInput(pageNum.toString());
+    if (scrollMode === 'continuous') {
+      const el = document.getElementById(`pdf-page-${pageNum}`);
+      if (el) {
+        el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      }
+    }
   };
 
   const goToPrevPage = () => goToPage(currentPage - 1);
@@ -396,13 +525,31 @@ export const PdfViewer: React.FC<PdfViewerProps> = ({
         ref={containerRef}
         className="flex-1 h-full overflow-auto p-6 md:p-8 flex flex-col items-center justify-start relative"
       >
-        {/* Document Canvas Sheet */}
-        <div className="relative my-auto transition-transform duration-150 ease-out">
-          <canvas
-            ref={canvasRef}
-            className="rounded-sm shadow-xl dark:shadow-2xl dark:shadow-black/70 bg-white border border-slate-300/70 dark:border-slate-700"
-          />
-        </div>
+        {/* Document Canvas Sheet: Single Page or Continuous Scroll */}
+        {scrollMode === 'single' ? (
+          <div className="relative my-auto transition-transform duration-150 ease-out">
+            <canvas
+              ref={canvasRef}
+              className="rounded-sm shadow-xl dark:shadow-2xl dark:shadow-black/70 bg-white border border-slate-300/70 dark:border-slate-700"
+            />
+          </div>
+        ) : (
+          <div className="w-full flex flex-col items-center py-4 space-y-4">
+            {Array.from({ length: numPages }, (_, idx) => (
+              <PdfContinuousPage
+                key={`cont-page-${idx + 1}`}
+                doc={pdfDoc}
+                pageNumber={idx + 1}
+                scale={scale}
+                rotation={rotation}
+                onVisible={(p) => {
+                  setCurrentPage(p);
+                  setPageInput(p.toString());
+                }}
+              />
+            ))}
+          </div>
+        )}
 
         {/* 3. Floating Reader Controls Pill Bar */}
         <div className="sticky bottom-4 z-30 flex items-center gap-1 px-3 py-1.5 rounded-2xl bg-white/90 dark:bg-slate-900/90 border border-slate-200 dark:border-slate-800 shadow-lg backdrop-blur-md text-xs select-none">
@@ -415,6 +562,40 @@ export const PdfViewer: React.FC<PdfViewerProps> = ({
             className="h-7 w-7"
           >
             <Icon icon="lucide:layout-grid" className="text-sm" />
+          </Button>
+
+          {/* Toggle Continuous Scroll Mode Button */}
+          <Button
+            variant={scrollMode === 'continuous' ? 'default' : 'ghost'}
+            size="sm"
+            onClick={() => {
+              const nextMode = scrollMode === 'continuous' ? 'single' : 'continuous';
+              setScrollMode(nextMode);
+              if (nextMode === 'continuous') {
+                setTimeout(() => {
+                  const el = document.getElementById(`pdf-page-${currentPage}`);
+                  if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                }, 50);
+              }
+            }}
+            title={
+              scrollMode === 'continuous'
+                ? 'Continuous Vertical Scroll (Top-to-Bottom). Click for Single Page.'
+                : 'Click to switch to Continuous Vertical Scroll (Top-to-Bottom).'
+            }
+            className={`h-7 px-2.5 text-xs flex items-center gap-1.5 transition-all ${
+              scrollMode === 'continuous'
+                ? 'bg-blue-600 hover:bg-blue-700 text-white font-medium shadow-xs'
+                : 'text-slate-600 dark:text-slate-300'
+            }`}
+          >
+            <Icon
+              icon={scrollMode === 'continuous' ? 'solar:scroll-vertical-bold' : 'solar:document-linear'}
+              className="text-sm"
+            />
+            <span className="text-[11.5px] font-medium">
+              {scrollMode === 'continuous' ? 'Scroll Mode' : 'Single Page'}
+            </span>
           </Button>
 
           <div className="h-4 w-[1px] bg-slate-200 dark:bg-slate-700 mx-0.5" />

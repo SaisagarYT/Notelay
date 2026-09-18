@@ -1,6 +1,43 @@
 import { MasterDocument, Flashcard, QuizQuestion } from '../types';
 
 /**
+ * Helper to separate a flashcard solution into:
+ * 1. directAnswer: Specific concise target verdict/definition (Top)
+ * 2. explanation: Detailed breakdown, rationale, or context (Bottom)
+ */
+export function splitDirectAnswerAndExplanation(text: string, contextFallback?: string): {
+  directAnswer: string;
+  explanation: string;
+} {
+  const clean = (text || '').trim();
+  if (!clean) return { directAnswer: '', explanation: contextFallback || '' };
+
+  // 1. Check for double newline or newline
+  const paragraphs = clean.split(/\n+/).map((p) => p.trim()).filter(Boolean);
+  if (paragraphs.length >= 2) {
+    return {
+      directAnswer: paragraphs[0],
+      explanation: paragraphs.slice(1).join('\n\n'),
+    };
+  }
+
+  // 2. Check for sentence break (e.g. ". " or "—" or ":")
+  const sentenceMatch = clean.match(/^([^.?!]+[.?!])\s+(.+)$/s);
+  if (sentenceMatch && sentenceMatch[1].length > 15) {
+    return {
+      directAnswer: sentenceMatch[1].trim(),
+      explanation: sentenceMatch[2].trim(),
+    };
+  }
+
+  // 3. Fallback: single answer with context fallback if available
+  return {
+    directAnswer: clean,
+    explanation: contextFallback || '',
+  };
+}
+
+/**
  * Extracts comprehensive flashcards from a MasterDocument by analyzing:
  * 1. section.recallQuestions
  * 2. section.keyTakeaways
@@ -23,6 +60,7 @@ export function extractFlashcardsFromDocument(doc: MasterDocument): Flashcard[] 
           const front = rq.question.trim();
           if (front && !seenFronts.has(front.toLowerCase())) {
             seenFronts.add(front.toLowerCase());
+            const parsed = splitDirectAnswerAndExplanation(rq.answer.trim(), chapter.summary || section.title);
             cards.push({
               id: `fc-rq-${chapter.chapterNumber}-${section.id}-${idx}`,
               chapterNumber: chapter.chapterNumber,
@@ -30,6 +68,8 @@ export function extractFlashcardsFromDocument(doc: MasterDocument): Flashcard[] 
               sectionTitle: section.title,
               front,
               back: rq.answer.trim(),
+              directAnswer: parsed.directAnswer,
+              explanation: parsed.explanation,
               category: 'recall',
               masteryLevel: 'unlearned',
               reviewCount: 0,
@@ -47,8 +87,10 @@ export function extractFlashcardsFromDocument(doc: MasterDocument): Flashcard[] 
           // Check if format is **Term**: Description
           const colonMatch = clean.match(/^\*\*([^*]+)\*\*:\s*(.*)$/);
           if (colonMatch) {
-            const front = `What is the core principle of **${colonMatch[1].trim()}**?`;
-            const back = colonMatch[2].trim();
+            const term = colonMatch[1].trim();
+            const desc = colonMatch[2].trim();
+            const front = `What is the core principle of **${term}**?`;
+            const parsed = splitDirectAnswerAndExplanation(desc, chapter.summary || section.title);
             if (!seenFronts.has(front.toLowerCase())) {
               seenFronts.add(front.toLowerCase());
               cards.push({
@@ -57,7 +99,9 @@ export function extractFlashcardsFromDocument(doc: MasterDocument): Flashcard[] 
                 chapterTitle: chapter.title,
                 sectionTitle: section.title,
                 front,
-                back,
+                back: desc,
+                directAnswer: parsed.directAnswer,
+                explanation: parsed.explanation,
                 category: 'takeaway',
                 masteryLevel: 'unlearned',
                 reviewCount: 0,
@@ -65,6 +109,7 @@ export function extractFlashcardsFromDocument(doc: MasterDocument): Flashcard[] 
             }
           } else {
             const front = `Key Insight: ${section.title} (Chapter ${chapter.chapterNumber})`;
+            const parsed = splitDirectAnswerAndExplanation(clean, chapter.summary || section.title);
             if (!seenFronts.has(clean.toLowerCase())) {
               seenFronts.add(clean.toLowerCase());
               cards.push({
@@ -74,6 +119,8 @@ export function extractFlashcardsFromDocument(doc: MasterDocument): Flashcard[] 
                 sectionTitle: section.title,
                 front,
                 back: clean,
+                directAnswer: parsed.directAnswer,
+                explanation: parsed.explanation,
                 category: 'takeaway',
                 masteryLevel: 'unlearned',
                 reviewCount: 0,
@@ -94,6 +141,7 @@ export function extractFlashcardsFromDocument(doc: MasterDocument): Flashcard[] 
             const term = defMatch[1].trim();
             const definition = defMatch[2].trim();
             const front = `Explain the concept: **${term}**`;
+            const parsed = splitDirectAnswerAndExplanation(definition, chapter.summary || section.title);
             if (term.length >= 2 && definition.length >= 10 && !seenFronts.has(front.toLowerCase())) {
               seenFronts.add(front.toLowerCase());
               cards.push({
@@ -103,6 +151,8 @@ export function extractFlashcardsFromDocument(doc: MasterDocument): Flashcard[] 
                 sectionTitle: section.title,
                 front,
                 back: definition,
+                directAnswer: parsed.directAnswer,
+                explanation: parsed.explanation,
                 category: 'definition',
                 masteryLevel: 'unlearned',
                 reviewCount: 0,
@@ -121,7 +171,9 @@ export function extractFlashcardsFromDocument(doc: MasterDocument): Flashcard[] 
               if (cells.length >= 2) {
                 const rowKey = cells[0].replace(/\*\*/g, '').trim();
                 const front = `In ${headers.join(' vs ')}, what is the distinction regarding **${rowKey}**?`;
-                const back = cells.slice(1).map((val, cIdx) => `**${headers[cIdx + 1] || 'Item'}**: ${val}`).join('\n\n');
+                const directAnswer = cells.slice(1).map((val, cIdx) => `${headers[cIdx + 1] || 'Item'}: ${val}`).join(' | ');
+                const explanation = cells.slice(1).map((val, cIdx) => `• **${headers[cIdx + 1] || 'Item'}**: ${val}`).join('\n');
+                const back = `${directAnswer}\n\n${explanation}`;
                 if (rowKey && !seenFronts.has(front.toLowerCase())) {
                   seenFronts.add(front.toLowerCase());
                   cards.push({
@@ -131,6 +183,8 @@ export function extractFlashcardsFromDocument(doc: MasterDocument): Flashcard[] 
                     sectionTitle: section.title,
                     front,
                     back,
+                    directAnswer,
+                    explanation,
                     category: 'definition',
                     masteryLevel: 'unlearned',
                     reviewCount: 0,
@@ -147,12 +201,16 @@ export function extractFlashcardsFromDocument(doc: MasterDocument): Flashcard[] 
   // Fallback if document has very little structured text
   if (cards.length === 0) {
     doc.chapters.forEach((chapter) => {
+      const fallbackText = chapter.summary || `Comprehensive foundations and core mechanics covered in Chapter ${chapter.chapterNumber}.`;
+      const parsed = splitDirectAnswerAndExplanation(fallbackText);
       cards.push({
         id: `fc-ch-${chapter.chapterNumber}`,
         chapterNumber: chapter.chapterNumber,
         chapterTitle: chapter.title,
         front: `What are the primary objectives of **${chapter.title}**?`,
-        back: chapter.summary || `Comprehensive foundations and core mechanics covered in Chapter ${chapter.chapterNumber}.`,
+        back: fallbackText,
+        directAnswer: parsed.directAnswer,
+        explanation: parsed.explanation,
         category: 'takeaway',
         masteryLevel: 'unlearned',
         reviewCount: 0,

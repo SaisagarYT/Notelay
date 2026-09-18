@@ -309,10 +309,10 @@ export const Sidebar: React.FC<SidebarProps> = ({
                       : 'hover:bg-slate-200/60 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-300'
                   }`}
                 >
-                  <div className="flex items-center gap-2 truncate">
+                  <div className="flex items-center gap-2 min-w-0 flex-1 mr-1">
                     <FileText size={13} className="text-rose-500 shrink-0" />
-                    <div className="flex flex-col truncate">
-                      <span className="truncate">{source.name}</span>
+                    <div className="flex flex-col min-w-0 flex-1">
+                      <span className="truncate" title={source.name}>{source.name}</span>
                       <span className="text-[10px] text-slate-400 truncate">{projectName}</span>
                     </div>
                   </div>
@@ -453,13 +453,13 @@ export const Sidebar: React.FC<SidebarProps> = ({
                                 : 'hover:bg-slate-200/50 dark:hover:bg-slate-800/60 text-slate-600 dark:text-slate-400'
                             }`}
                           >
-                            <div className="flex items-center gap-1.5 truncate">
+                            <div className="flex items-center gap-1.5 min-w-0 flex-1 mr-1">
                               {isPdf ? (
                                 <FileText size={12} className="text-rose-500 shrink-0" />
                               ) : (
                                 <FileCode size={12} className="text-slate-500 shrink-0" />
                               )}
-                              <span className="truncate">{source.name}</span>
+                              <span className="truncate" title={source.name}>{source.name}</span>
                             </div>
 
                             <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">

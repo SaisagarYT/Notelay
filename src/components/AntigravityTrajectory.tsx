@@ -9,7 +9,7 @@ export interface AntigravityTrajectoryProps {
   liveSeconds?: number;
   defaultExpandedThought?: boolean;
   defaultExpandedExplore?: boolean;
-  onOpenThinkingStudio?: () => void;
+  onOpenThinkingStudio?: (runId?: string) => void;
   onJumpToChapter?: (chapterNum: number) => void;
 }
 
@@ -108,11 +108,10 @@ export const AntigravityTrajectory: React.FC<AntigravityTrajectoryProps> = ({
       });
     } else {
       // Clean default realistic trajectory lines
-      const projName = 'c:\\Users\\saisa\\Documents\\Work\\Projects\\Personal\\Notelay';
       list.push({
         id: 'step-root',
         verb: 'Analyzed',
-        target: projName,
+        target: 'Workspace Sources & Knowledge Index',
         isFolder: true,
       });
 
@@ -120,25 +119,23 @@ export const AntigravityTrajectory: React.FC<AntigravityTrajectoryProps> = ({
         list.push({
           id: 'step-notes',
           verb: 'Analyzed',
-          target: 'master-notes.md #L1-45',
+          target: 'Master Document Notes Canvas',
           isFolder: false,
         });
 
         if (run.actionTaken === 'CREATE_CHAPTER') {
           list.push({
             id: 'step-create',
-            verb: 'Created',
+            verb: 'Synthesized',
             target: `Chapter ${run.targetChapterNumber || 1}: Master Notes`,
             isFolder: false,
-            diff: { added: 36, removed: 0 },
           });
         } else if (run.actionTaken === 'UPDATE_SECTION') {
           list.push({
             id: 'step-edit',
-            verb: 'Edited',
-            target: 'master-notes.md',
+            verb: 'Updated',
+            target: 'Master Notes Document Canvas',
             isFolder: false,
-            diff: { added: 16, removed: 2 },
           });
         }
       }
@@ -196,24 +193,32 @@ export const AntigravityTrajectory: React.FC<AntigravityTrajectoryProps> = ({
         )}
       </AnimatePresence>
 
-      {/* 2. Thought Header & Accordion */}
+      {/* 2. Thought Header & Studio Trigger */}
       {hasThought && (
         <div className="mt-1">
           <button
             type="button"
-            onClick={() => setIsThoughtExpanded(!isThoughtExpanded)}
-            className="inline-flex items-center gap-1.5 py-0.5 hover:text-slate-900 dark:hover:text-slate-100 transition-colors cursor-pointer text-left group"
+            onClick={() => {
+              if (onOpenThinkingStudio) {
+                onOpenThinkingStudio(run.id);
+              } else {
+                setIsThoughtExpanded(!isThoughtExpanded);
+              }
+            }}
+            className="inline-flex items-center gap-1.5 py-1 px-2.5 rounded-lg bg-slate-100/90 dark:bg-slate-800/80 hover:bg-slate-200/90 dark:hover:bg-slate-700/80 border border-slate-200/80 dark:border-slate-700/80 hover:border-slate-300 dark:hover:border-slate-600 transition-all cursor-pointer text-left group shadow-2xs"
+            title="Open AI Thinking & Reasoning Studio"
           >
-            <span className="font-normal text-slate-600 dark:text-slate-400">
+            <Icon icon="solar:brain-bold" className="w-3.5 h-3.5 text-indigo-500 dark:text-indigo-400 shrink-0" />
+            <span className="font-medium text-[12px] text-slate-700 dark:text-slate-300">
               Thought for {durationSec}s
             </span>
             <Icon
-              icon={isThoughtExpanded ? 'solar:alt-arrow-up-linear' : 'solar:alt-arrow-right-linear'}
-              className="w-3.5 h-3.5 text-slate-400 group-hover:text-slate-600 dark:group-hover:text-slate-300 transition-transform"
+              icon="solar:alt-arrow-right-linear"
+              className="w-3 h-3 text-slate-400 group-hover:translate-x-0.5 transition-transform"
             />
           </button>
 
-          {/* Clean Indented Thought Body (Antigravity style) */}
+          {/* Clean Indented Thought Body (Antigravity style fallback if inline) */}
           <AnimatePresence>
             {isThoughtExpanded && (
               <motion.div
@@ -231,7 +236,7 @@ export const AntigravityTrajectory: React.FC<AntigravityTrajectoryProps> = ({
                   {onOpenThinkingStudio && (
                     <button
                       type="button"
-                      onClick={onOpenThinkingStudio}
+                      onClick={() => onOpenThinkingStudio(run.id)}
                       className="inline-flex items-center gap-1 text-[11.5px] font-medium text-primary hover:underline cursor-pointer pt-1"
                     >
                       <span>View in AI Thinking studio →</span>
@@ -263,13 +268,7 @@ export const AntigravityTrajectory: React.FC<AntigravityTrajectoryProps> = ({
               {st.target}
             </span>
 
-            {st.diff && (
-              <span className="text-[11px] font-mono font-medium text-emerald-600 dark:text-emerald-400 shrink-0">
-                +{st.diff.added}
-              </span>
-            )}
-
-            {onJumpToChapter && st.verb === 'Created' && (
+            {onJumpToChapter && st.verb === 'Synthesized' && (
               <button
                 type="button"
                 onClick={() => onJumpToChapter(run.targetChapterNumber || 1)}

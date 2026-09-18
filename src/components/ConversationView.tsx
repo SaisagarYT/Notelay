@@ -138,7 +138,7 @@ interface ConversationViewProps {
   onSelectExecutionMode?: (mode: 'Local' | 'Cloud' | 'Sandbox') => void;
   activeAgentRun?: AgentActivityRun | null;
   onOpenLogsFolder?: () => void;
-  onOpenThinkingStudio?: () => void;
+  onOpenThinkingStudio?: (runId?: string) => void;
 }
 
 export const ConversationView: React.FC<ConversationViewProps> = ({
@@ -170,12 +170,7 @@ export const ConversationView: React.FC<ConversationViewProps> = ({
   const [isListening, setIsListening] = useState(false);
   const [completedTypewriterIds, setCompletedTypewriterIds] = useState<Set<string>>(() => new Set());
   const [liveSeconds, setLiveSeconds] = useState<number>(0);
-  const [expandedThoughts, setExpandedThoughts] = useState<Record<string, boolean>>({});
   const recognitionRef = useRef<{ start: () => void; stop: () => void } | null>(null);
-
-  const toggleThinking = (id: string) => {
-    setExpandedThoughts((prev) => ({ ...prev, [id]: !prev[id] }));
-  };
 
   useEffect(() => {
     if (!activeAgentRun || activeAgentRun.status !== 'running') {

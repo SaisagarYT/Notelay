@@ -17,7 +17,7 @@ import { TrashModal } from './components/TrashModal';
 import { OmniSearchModal } from './components/OmniSearchModal';
 import { extractFlashcardsFromDocument } from './utils/flashcardExtractor';
 import { exportDocumentToMarkdown } from './utils/documentGenerator';
-import { MessageSquare, FileText, X } from 'lucide-react';
+import { MessageSquare, FileText, X, Plus, FolderPlus } from 'lucide-react';
 import { useAppStore } from './store/useAppStore';
 import { Conversation } from './types';
 
@@ -86,11 +86,11 @@ export const App: React.FC = () => {
     activeSource,
     selectSourceFile,
     openChatView,
-    customizeSectionSelection,
+    updateSectionContent,
     insertChapterAtPosition,
     deleteChapter,
     deleteSection,
-    updateSectionContent,
+    customizeSectionSelection,
     activeAgentRun,
     openTrainingLogsFolder,
   } = useAppStore();
@@ -102,7 +102,8 @@ export const App: React.FC = () => {
   // Step 5: Side-by-Side Dual Studio Workspace State
   const [isDualStudioMode, setIsDualStudioMode] = useState<boolean>(false);
   const [dualStudioRatio, setDualStudioRatio] = useState<'balanced' | 'pdf-focus' | 'notes-focus'>('balanced');
-  const [canvasActiveTab, setCanvasActiveTab] = useState<'document' | 'outline' | 'flashcards' | 'graph' | 'sources' | 'activity'>('document');
+  const [canvasActiveTab, setCanvasActiveTab] = useState<'document' | 'flashcards' | 'sources' | 'activity'>('document');
+  const [selectedThinkingRunId, setSelectedThinkingRunId] = useState<string | null>(null);
   const [omniSearchOpen, setOmniSearchOpen] = useState<boolean>(false);
 
   const toggleDualStudioMode = useCallback(() => {
@@ -414,69 +415,103 @@ export const App: React.FC = () => {
 
           {/* Dual-View Body Container: State-preserving concurrent mounting */}
           <div className="flex-1 relative overflow-hidden">
-            {/* View A: Conversation & Prompt Workspace */}
-            <div
-              className={`absolute inset-0 transition-opacity duration-200 ease-out ${
-                activeMainView === 'chat'
-                  ? 'opacity-100 pointer-events-auto z-10'
-                  : 'opacity-0 pointer-events-none z-0'
-              }`}
-            >
-              <ConversationView
-                conversation={activeConversation}
-                projectName={activeProject?.name}
-                sourcesCount={activeProject?.sources?.length || 0}
-                canvasOpen={canvasOpen}
-                onToggleCanvas={() => setCanvasOpen(!canvasOpen)}
-                onOpenSourceModal={() => setSourceModalOpen(true)}
-                onSendMessage={createAndSendMessage}
-                onNewConversation={clearActiveSession}
-                selectedModel={selectedModel}
-                onSelectModel={setSelectedModel}
-                executionMode={executionMode}
-                onSelectExecutionMode={setExecutionMode}
-                availableModels={availableModels}
-                isDetectingModels={isDetectingModels}
-                onRefreshLocalModels={refreshLocalModels}
-                onOpenSettings={() => setSettingsOpen(true)}
-                activeAgentRun={activeAgentRun}
-                onOpenLogsFolder={openTrainingLogsFolder}
-                onOpenThinkingStudio={() => {
-                  setCanvasOpen(true);
-                  setCanvasActiveTab('activity');
-                }}
-              />
-            </div>
+            {!activeProject || projects.filter((p) => !p.isDeleted).length === 0 ? (
+              <div className="absolute inset-0 flex flex-col items-center justify-center p-8 text-center select-none bg-slate-50/50 dark:bg-slate-950">
+                <div className="w-16 h-16 rounded-2xl bg-blue-50 dark:bg-blue-950/40 border border-blue-200/80 dark:border-blue-800/80 flex items-center justify-center text-blue-600 dark:text-blue-400 mb-4 shadow-sm">
+                  <FolderPlus size={30} strokeWidth={1.7} />
+                </div>
+                <h2 className="text-base font-semibold text-slate-900 dark:text-slate-100">
+                  No Project Open
+                </h2>
+                <p className="text-[12.5px] text-slate-500 dark:text-slate-400 mt-1.5 max-w-sm leading-relaxed">
+                  Create a new project folder to start taking smart research notes, reviewing flashcards, and chatting with AI.
+                </p>
+                <div className="mt-5 flex items-center gap-2.5">
+                  <button
+                    onClick={() => setNewProjectOpen(true)}
+                    className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold shadow-xs transition-all cursor-pointer hover:scale-[1.02]"
+                  >
+                    <Plus size={14} />
+                    <span>Create New Project</span>
+                  </button>
+                  <button
+                    onClick={() => setSidebarOpen(true)}
+                    className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 text-xs font-medium hover:bg-slate-100 dark:hover:bg-slate-700 transition-all cursor-pointer shadow-2xs"
+                  >
+                    <span>Open Sidebar</span>
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <>
+                {/* View A: Conversation & Prompt Workspace */}
+                <div
+                  className={`absolute inset-0 transition-opacity duration-200 ease-out ${
+                    activeMainView === 'chat'
+                      ? 'opacity-100 pointer-events-auto z-10'
+                      : 'opacity-0 pointer-events-none z-0'
+                  }`}
+                >
+                  <ConversationView
+                    conversation={activeConversation}
+                    projectName={activeProject?.name}
+                    sourcesCount={activeProject?.sources?.length || 0}
+                    canvasOpen={canvasOpen}
+                    onToggleCanvas={() => setCanvasOpen(!canvasOpen)}
+                    onOpenSourceModal={() => setSourceModalOpen(true)}
+                    onSendMessage={createAndSendMessage}
+                    onNewConversation={clearActiveSession}
+                    selectedModel={selectedModel}
+                    onSelectModel={setSelectedModel}
+                    executionMode={executionMode}
+                    onSelectExecutionMode={setExecutionMode}
+                    availableModels={availableModels}
+                    isDetectingModels={isDetectingModels}
+                    onRefreshLocalModels={refreshLocalModels}
+                    onOpenSettings={() => setSettingsOpen(true)}
+                    activeAgentRun={activeAgentRun}
+                    onOpenLogsFolder={openTrainingLogsFolder}
+                    onOpenThinkingStudio={(runId) => {
+                      if (runId) setSelectedThinkingRunId(runId);
+                      setCanvasOpen(true);
+                      setCanvasActiveTab('activity');
+                    }}
+                  />
+                </div>
 
-            {/* View B: In-Place Document & PDF Viewer */}
-            <div
-              className={`absolute inset-0 transition-opacity duration-200 ease-out ${
-                activeMainView === 'file'
-                  ? 'opacity-100 pointer-events-auto z-10'
-                  : 'opacity-0 pointer-events-none z-0'
-              }`}
-            >
-              <FileViewer
-                source={activeSource}
-                projectId={activeProject.id}
-                projectName={activeProject.name}
-                onBackToChat={openChatView}
-                onClipToNotebook={handleClipToNotebook}
-                onToggleDualStudio={toggleDualStudioMode}
-                isDualStudio={isDualStudioMode}
-              />
-            </div>
+                {/* View B: In-Place Document & PDF Viewer */}
+                <div
+                  className={`absolute inset-0 transition-opacity duration-200 ease-out ${
+                    activeMainView === 'file'
+                      ? 'opacity-100 pointer-events-auto z-10'
+                      : 'opacity-0 pointer-events-none z-0'
+                  }`}
+                >
+                  <FileViewer
+                    source={activeSource}
+                    projectId={activeProject?.id || ''}
+                    projectName={activeProject?.name || 'Workspace'}
+                    onBackToChat={openChatView}
+                    onClipToNotebook={handleClipToNotebook}
+                    onToggleDualStudio={toggleDualStudioMode}
+                    isDualStudio={isDualStudioMode}
+                  />
+                </div>
+              </>
+            )}
           </div>
         </main>
 
         {/* Panel 3: Right Collapsible Master Document Canvas */}
         <DocumentCanvas
           document={activeDocument}
-          sources={activeProject.sources || []}
-          projectName={activeProject.name}
+          sources={activeProject?.sources || []}
+          projectName={activeProject?.name || 'Workspace'}
           isOpen={canvasOpen}
           activeTab={canvasActiveTab}
           onTabChange={setCanvasActiveTab}
+          selectedRunId={selectedThinkingRunId}
+          onSelectRunId={setSelectedThinkingRunId}
           sidebarWidth={sidebarOpen ? sidebarWidth : 0}
           onClose={() => {
             setCanvasOpen(false);
@@ -492,6 +527,7 @@ export const App: React.FC = () => {
           dualStudioRatio={dualStudioRatio}
           onSetDualStudioRatio={setDualStudioRatio}
           onRemoveSource={(sourceId) => {
+            if (!activeProject) return;
             const src = activeProject.sources?.find((s) => s.id === sourceId);
             openDeleteConfirm({
               type: 'source',
@@ -515,20 +551,22 @@ export const App: React.FC = () => {
       <SourceFilesModal
         isOpen={sourceModalOpen}
         onClose={() => setSourceModalOpen(false)}
-        projectName={activeProject?.name}
-        projectId={activeProject?.id}
+        projectName={activeProject?.name || 'Workspace'}
+        projectId={activeProject?.id || ''}
         sources={activeProject?.sources || []}
         onAddSources={addSourcesToActiveProject}
         onTogglePinSource={togglePinSource}
         onDeleteSource={openDeleteConfirm}
       />
 
-      <ExportModal
-        isOpen={exportModalOpen}
-        onClose={() => setExportModalOpen(false)}
-        document={activeDocument}
-        projectName={activeProject?.name}
-      />
+      {activeDocument && (
+        <ExportModal
+          isOpen={exportModalOpen}
+          onClose={() => setExportModalOpen(false)}
+          document={activeDocument}
+          projectName={activeProject?.name || 'Workspace'}
+        />
+      )}
 
       <SettingsModal
         isOpen={settingsOpen}

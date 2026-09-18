@@ -3,6 +3,7 @@ import { MasterDocument, Flashcard } from '../types';
 import {
   extractFlashcardsFromDocument,
   generateQuizFromDocument,
+  splitDirectAnswerAndExplanation,
 } from '../utils/flashcardExtractor';
 import {
   calculateSM2,
@@ -546,10 +547,10 @@ export const FlashcardStudio: React.FC<FlashcardStudioProps> = ({
                     className="absolute inset-0 w-full h-full bg-gradient-to-br from-white via-blue-50/40 to-indigo-50/30 dark:from-slate-900 dark:via-blue-950/30 dark:to-slate-900 rounded-2xl border-2 border-blue-300 dark:border-blue-700/80 p-6 flex flex-col justify-between"
                   >
                     <div>
-                      <div className="flex items-center justify-between text-xs text-blue-700 dark:text-blue-400 mb-3 pb-2 border-b border-blue-100 dark:border-blue-900/60 font-semibold">
-                        <span className="flex items-center gap-1.5">
+                      <div className="flex items-center justify-between text-xs text-slate-500 dark:text-slate-400 mb-2.5 pb-2 border-b border-slate-100 dark:border-slate-800">
+                        <span className="flex items-center gap-1.5 font-medium">
                           <CheckCircle2 size={13} className="text-emerald-500" />
-                          <span>Core Principle & Explanation</span>
+                          <span className="text-slate-800 dark:text-slate-200 font-semibold">Active Recall Solution</span>
                         </span>
                         {onJumpToChapter && (
                           <button
@@ -558,16 +559,35 @@ export const FlashcardStudio: React.FC<FlashcardStudioProps> = ({
                               e.stopPropagation();
                               onJumpToChapter(activeCard?.chapterNumber || 1);
                             }}
-                            className="text-[11px] underline text-blue-600 hover:text-blue-800 cursor-pointer"
+                            className="text-[11px] underline text-blue-600 hover:text-blue-800 dark:text-blue-400 cursor-pointer"
                           >
                             Jump to Chapter {activeCard?.chapterNumber} →
                           </button>
                         )}
                       </div>
 
-                      <div className="py-2 text-[14px] text-slate-800 dark:text-slate-200 leading-relaxed font-sans whitespace-pre-line">
-                        {activeCard?.back}
+                      {/* Top Tier: Specific Target Answer */}
+                      <div className="p-3 rounded-xl bg-emerald-50/80 dark:bg-emerald-950/40 border border-emerald-200/80 dark:border-emerald-800/80 mb-2.5 shadow-2xs">
+                        <div className="flex items-center gap-1.5 text-[10px] font-mono font-bold uppercase tracking-wider text-emerald-700 dark:text-emerald-400 mb-1">
+                          <CheckCircle2 size={11} className="text-emerald-600 dark:text-emerald-400" />
+                          <span>Direct Answer</span>
+                        </div>
+                        <div className="text-[14px] font-semibold text-slate-900 dark:text-slate-100 leading-snug select-text">
+                          {activeCard?.directAnswer || (activeCard?.back ? splitDirectAnswerAndExplanation(activeCard.back).directAnswer : '')}
+                        </div>
                       </div>
+
+                      {/* Bottom Tier: Detailed Description & Context */}
+                      {(activeCard?.explanation || (activeCard?.back && splitDirectAnswerAndExplanation(activeCard.back).explanation)) ? (
+                        <div className="p-3 rounded-xl bg-white/80 dark:bg-slate-800/70 border border-slate-200/80 dark:border-slate-700/80 text-[12.5px] text-slate-700 dark:text-slate-300 leading-relaxed max-h-[140px] overflow-y-auto custom-scrollbar select-text shadow-2xs">
+                          <div className="text-[10px] font-mono font-semibold uppercase tracking-wider text-slate-400 mb-1 flex items-center gap-1">
+                            <span>Detailed Explanation & Context</span>
+                          </div>
+                          <div className="whitespace-pre-line font-normal">
+                            {activeCard?.explanation || (activeCard?.back ? splitDirectAnswerAndExplanation(activeCard.back).explanation : '')}
+                          </div>
+                        </div>
+                      ) : null}
                     </div>
 
                     {/* Spaced Repetition Rating Buttons */}

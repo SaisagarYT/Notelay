@@ -95,58 +95,6 @@ export const AVAILABLE_MODELS: AIModel[] = [
   },
 ];
 
-const DEFAULT_PROJECTS: Project[] = [
-  {
-    id: 'notelay',
-    name: 'Notelay Engine',
-    description: 'Core AI knowledge and preparation notes workspace',
-    isExpanded: true,
-    createdAt: 'Today',
-    updatedAt: 'Just now',
-    sources: [
-      {
-        id: 'source-default-1',
-        name: 'Notelay-Architecture-Overview.md',
-        type: 'md',
-        size: 2450,
-        uploadedAt: 'Today',
-        content: '# Notelay Architecture\n- 1 Dedicated session per project\n- Ingests text, PDF, and notes\n- Mermaid.js diagrams\n- Lifelong retention memory boxes\n- 1 to 500+ pages exportable to PDF',
-        tokenCount: 612,
-      },
-    ],
-    document: createEmptyMasterDocument('notelay', 'Notelay Knowledge Engine Notes'),
-    session: {
-      id: 'session-notelay',
-      projectId: 'notelay',
-      title: 'Notelay Master Session',
-      createdAt: 'Today',
-      updatedAt: 'Just now',
-      model: 'Qwen Plus',
-      executionMode: 'Local',
-      messages: [],
-    },
-  },
-  {
-    id: 'deep-learning',
-    name: 'Deep Learning & Systems',
-    description: 'Transformer architectures, backpropagation, and memory optimization',
-    isExpanded: true,
-    createdAt: 'Yesterday',
-    updatedAt: 'Yesterday',
-    sources: [],
-    document: createEmptyMasterDocument('deep-learning', 'Deep Learning & Systems Master Notes'),
-    session: {
-      id: 'session-deep-learning',
-      projectId: 'deep-learning',
-      title: 'Deep Learning Session',
-      createdAt: 'Yesterday',
-      updatedAt: 'Yesterday',
-      model: 'Qwen Plus',
-      executionMode: 'Local',
-      messages: [],
-    },
-  },
-];
 
 const DEFAULT_TASKS: ScheduledTask[] = [
   {
@@ -690,6 +638,33 @@ export function useAppStore() {
       timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
     };
 
+    if (!activeProject) {
+      const newId = 'project-' + Date.now();
+      const newProj: Project = {
+        id: newId,
+        name: 'My Workspace',
+        description: 'Active knowledge workspace',
+        isExpanded: true,
+        createdAt: 'Just now',
+        updatedAt: 'Just now',
+        sources: [],
+        document: createEmptyMasterDocument(newId, 'Master Notes'),
+        session: {
+          id: `session-${newId}`,
+          projectId: newId,
+          title: 'Knowledge Chat',
+          createdAt: 'Just now',
+          updatedAt: 'Just now',
+          model: selectedModel,
+          executionMode,
+          messages: [userMessage],
+        },
+      };
+      setProjects([newProj]);
+      setActiveProjectId(newId);
+      return;
+    }
+
     // Append user message immediately
     setProjects((prev) =>
       prev.map((p) => {
@@ -728,20 +703,19 @@ export function useAppStore() {
       ? `Local Ollama (${currentModelObj.name})`
       : `${selectedModel}`;
 
-    const totalSourceTokens = (activeProject.sources || []).reduce((acc, s) => acc + (s.tokenCount || 0), 0);
     const sourceCount = activeProject.sources?.length || 0;
 
     // Build authentic Antigravity execution steps
     const initialSteps: AgentActivityStep[] = [];
-    const projectDir = 'c:\\Users\\saisa\\Documents\\Work\\Projects\\Personal\\Notelay';
+    const projectLabel = activeProject.name || 'Workspace';
 
     // 1. Root project path
     initialSteps.push({
       id: 'step-root',
       type: 'explore',
       verb: 'Analyzed',
-      target: projectDir,
-      label: `Analyzed ${projectDir}`,
+      target: `${projectLabel} Knowledge Index`,
+      label: `Analyzed ${projectLabel} Knowledge Index`,
       status: 'completed',
     });
 
@@ -763,16 +737,16 @@ export function useAppStore() {
         id: 'step-pkg',
         type: 'explore',
         verb: 'Analyzed',
-        target: 'package.json #L1-45',
-        label: 'Analyzed package.json #L1-45',
+        target: 'Workspace Knowledge Base',
+        label: 'Analyzed Workspace Knowledge Base',
         status: 'completed',
       });
       initialSteps.push({
         id: 'step-src',
         type: 'explore',
         verb: 'Analyzed',
-        target: `${projectDir}\\src`,
-        label: `Analyzed ${projectDir}\\src`,
+        target: `${projectLabel} Sources Index`,
+        label: `Analyzed ${projectLabel} Sources Index`,
         status: 'completed',
       });
     }

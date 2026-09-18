@@ -137,7 +137,9 @@ export interface Flashcard {
   chapterTitle: string;
   sectionTitle?: string;
   front: string; // Question, term, or prompt
-  back: string; // Explanation, formula, or definition
+  back: string; // Combined answer and explanation
+  directAnswer?: string; // Specific concise target answer (Top)
+  explanation?: string; // Detailed description & explanation (Bottom)
   category?: 'takeaway' | 'definition' | 'recall' | 'formula';
   masteryLevel: 'unlearned' | 'learning' | 'mastered';
   reviewCount: number;

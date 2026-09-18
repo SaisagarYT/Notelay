@@ -2,10 +2,8 @@ import React, { useState, useCallback, useRef, useEffect, useMemo } from 'react'
 import {
   FileText,
   BookOpen,
-  ListTree,
   Download,
   Printer,
-  ChevronRight,
   Eye,
   Plus,
   Trash2,
@@ -17,7 +15,6 @@ import {
   PenTool,
   Layers,
   Radio,
-  Share2,
   Bookmark,
 } from 'lucide-react';
 import { MasterDocument, SourceFile, AgentActivityRun, NotebookStickyNote } from '../types';
@@ -26,7 +23,6 @@ import { DiagramRenderer } from './DiagramRenderer';
 import { FloatingSelectionToolbar } from './FloatingSelectionToolbar';
 import { FlashcardStudio } from './FlashcardStudio';
 import { AudioOverviewPlayer } from './AudioOverviewPlayer';
-import { ConceptKnowledgeGraph } from './ConceptKnowledgeGraph';
 import { NotebookStickyNoteCard } from './NotebookStickyNoteCard';
 import { exportDocumentToMarkdown } from '../utils/documentGenerator';
 import { renderMarkdownBlocks } from '../utils/markdownParser';
@@ -63,8 +59,10 @@ interface DocumentCanvasProps {
   activityHistory?: AgentActivityRun[];
   onOpenLogsFolder?: () => void;
   sidebarWidth?: number;
-  activeTab?: 'document' | 'outline' | 'flashcards' | 'graph' | 'sources' | 'activity';
-  onTabChange?: (tab: 'document' | 'outline' | 'flashcards' | 'graph' | 'sources' | 'activity') => void;
+  selectedRunId?: string | null;
+  onSelectRunId?: (id: string | null) => void;
+  activeTab?: 'document' | 'flashcards' | 'sources' | 'activity';
+  onTabChange?: (tab: 'document' | 'flashcards' | 'sources' | 'activity') => void;
 }
 
 interface TypewriterNotebookSectionProps {
@@ -193,10 +191,12 @@ export const DocumentCanvas: React.FC<DocumentCanvasProps> = ({
   activityHistory = [],
   onOpenLogsFolder,
   sidebarWidth = 0,
+  selectedRunId,
+  onSelectRunId,
   activeTab: externalActiveTab,
   onTabChange,
 }) => {
-  const [activeTab, setActiveTab] = useState<'document' | 'outline' | 'flashcards' | 'graph' | 'sources' | 'activity'>(
+  const [activeTab, setActiveTab] = useState<'document' | 'flashcards' | 'sources' | 'activity'>(
     externalActiveTab || 'document'
   );
 
@@ -879,14 +879,7 @@ export const DocumentCanvas: React.FC<DocumentCanvasProps> = ({
       <div className="flex items-center gap-1 px-3 py-1 bg-slate-50/80 dark:bg-slate-900/80 border-b border-slate-200/80 dark:border-slate-800 text-[12px] font-medium text-slate-500 select-none overflow-x-auto no-scrollbar whitespace-nowrap">
         {[
           { id: 'document' as const, label: 'Notes', icon: <FileText size={12} /> },
-          {
-            id: 'outline' as const,
-            label: 'Outline',
-            badge: document.chapters.length > 0 ? document.chapters.length : undefined,
-            icon: <ListTree size={12} />,
-          },
           { id: 'flashcards' as const, label: 'Flashcards', icon: <Layers size={12} /> },
-          { id: 'graph' as const, label: 'Concept Graph', icon: <Share2 size={12} /> },
           {
             id: 'sources' as const,
             label: 'Sources',
@@ -1413,109 +1406,11 @@ export const DocumentCanvas: React.FC<DocumentCanvasProps> = ({
           </div>
         )}
 
-        {/* TAB 2: OUTLINE / TABLE OF CONTENTS */}
-        {activeTab === 'outline' && (
-          <div className="space-y-4">
-            <div className="p-4 rounded-xl bg-white border border-slate-200 shadow-xs">
-              <h3 className="text-sm font-semibold text-slate-800 mb-1">Document Hierarchy</h3>
-              <p className="text-xs text-slate-500">
-                Click any chapter or section to jump directly into the reading flow.
-              </p>
-            </div>
-
-            {document.chapters.length === 0 ? (
-              <p className="text-xs text-slate-400 text-center py-6">No chapters generated yet.</p>
-            ) : (
-              <div className="space-y-2">
-                {document.chapters.map((chapter) => (
-                  <div key={chapter.id} className="p-3 rounded-xl bg-white border border-slate-200">
-                    <div className="flex items-center justify-between group/ch">
-                      <div
-                        className="flex items-center gap-2 text-xs font-semibold text-slate-800 cursor-pointer hover:text-blue-600 flex-1 min-w-0"
-                        onClick={() => handleJumpToChapter(chapter.chapterNumber)}
-                      >
-                        <span className="w-5 h-5 rounded bg-[#f1f5f9] text-[#475569] border border-[#e2e8f0] flex items-center justify-center text-[10px] font-mono font-medium shrink-0">
-                          {chapter.chapterNumber}
-                        </span>
-                        <span className="truncate">{chapter.title}</span>
-                      </div>
-                      {onDeleteChapter && (
-                        <button
-                          type="button"
-                          title={`Delete Chapter ${chapter.chapterNumber}`}
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            setDeleteConfirmTarget({
-                              type: 'chapter',
-                              chapterNumber: chapter.chapterNumber,
-                              title: chapter.title,
-                            });
-                          }}
-                          className="opacity-60 hover:opacity-100 p-1 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded transition-all shrink-0 ml-1 cursor-pointer"
-                        >
-                          <Trash2 size={13} />
-                        </button>
-                      )}
-                    </div>
-                    <div className="mt-2 pl-7 space-y-1">
-                      {chapter.sections.map((sec) => (
-                        <div
-                          key={sec.id}
-                          className="group/sec text-[12px] text-slate-600 hover:text-blue-600 cursor-pointer flex items-center justify-between py-0.5 transition-colors"
-                        >
-                          <div
-                            className="flex items-center gap-1.5 flex-1 min-w-0"
-                            onClick={() => {
-                              setActiveTab('document');
-                              setTimeout(() => {
-                                window.document.getElementById(`sec-${sec.id}`)?.scrollIntoView({ behavior: 'smooth' });
-                              }, 60);
-                            }}
-                          >
-                            <ChevronRight size={11} className="text-slate-400 shrink-0" />
-                            <span className="truncate">{sec.title}</span>
-                          </div>
-                          {onDeleteSection && (
-                            <button
-                              type="button"
-                              title="Delete page"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                setDeleteConfirmTarget({
-                                  type: 'section',
-                                  chapterId: chapter.id,
-                                  sectionId: sec.id,
-                                  title: sec.title,
-                                });
-                              }}
-                              className="opacity-0 group-hover/sec:opacity-100 p-1 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded transition-all shrink-0 ml-1 cursor-pointer"
-                            >
-                              <Trash2 size={11} />
-                            </button>
-                          )}
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-        )}
 
         {/* TAB: ACTIVE RECALL & FLASHCARDS */}
         {activeTab === 'flashcards' && (
           <FlashcardStudio
             document={document}
-            onJumpToChapter={handleJumpToChapter}
-          />
-        )}
-
-        {/* TAB: CONCEPT KNOWLEDGE GRAPH */}
-        {activeTab === 'graph' && (
-          <ConceptKnowledgeGraph
-            document={document}
-            sources={sources}
             onJumpToChapter={handleJumpToChapter}
           />
         )}
@@ -1563,10 +1458,10 @@ export const DocumentCanvas: React.FC<DocumentCanvasProps> = ({
                 {sources.map((source) => (
                   <div
                     key={source.id}
-                    className="p-3 rounded-xl bg-white border border-slate-200 flex items-center justify-between hover:border-slate-300 transition-colors"
+                    className="p-3 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 flex items-center justify-between hover:border-slate-300 dark:hover:border-slate-700 transition-colors gap-2 overflow-hidden"
                   >
                     <div
-                      className="flex items-center gap-2.5 min-w-0 cursor-pointer flex-1 mr-2"
+                      className="flex items-center gap-2.5 min-w-0 cursor-pointer flex-1 overflow-hidden"
                       onClick={() => {
                         if (onSelectSource) {
                           onSelectSource(source);
@@ -1574,24 +1469,29 @@ export const DocumentCanvas: React.FC<DocumentCanvasProps> = ({
                           setSelectedSourcePreview(source);
                         }
                       }}
-                      title="Click to open side-by-side in Dual Studio"
+                      title={source.name}
                     >
-                      <div className="w-8 h-8 rounded-lg bg-indigo-50 text-indigo-700 dark:bg-indigo-950/60 dark:text-indigo-400 border border-indigo-200/60 flex items-center justify-center uppercase text-[10px] font-bold">
+                      <div className="w-8 h-8 rounded-lg bg-indigo-50 text-indigo-700 dark:bg-indigo-950/60 dark:text-indigo-400 border border-indigo-200/60 flex items-center justify-center uppercase text-[10px] font-bold shrink-0">
                         {source.type}
                       </div>
-                      <div className="min-w-0">
-                        <p className="text-xs font-medium text-slate-800 dark:text-slate-200 truncate hover:text-indigo-600 transition-colors">{source.name}</p>
-                        <p className="text-[11px] text-slate-400">
+                      <div className="min-w-0 flex-1 overflow-hidden">
+                        <p
+                          className="text-xs font-medium text-slate-800 dark:text-slate-200 line-clamp-2 break-all hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors leading-snug"
+                          title={source.name}
+                        >
+                          {source.name}
+                        </p>
+                        <p className="text-[11px] text-slate-400 dark:text-slate-500 mt-0.5">
                           {(source.size / 1024).toFixed(1)} KB • {source.uploadedAt}
                         </p>
                       </div>
                     </div>
 
-                    <div className="flex items-center gap-1">
+                    <div className="flex items-center gap-1 shrink-0">
                       {onSelectSource && (
                         <button
                           onClick={() => onSelectSource(source)}
-                          className="p-1.5 text-indigo-600 hover:text-indigo-800 hover:bg-indigo-50 rounded transition-colors cursor-pointer"
+                          className="p-1.5 text-indigo-600 hover:text-indigo-800 dark:text-indigo-400 dark:hover:text-indigo-300 hover:bg-indigo-50 dark:hover:bg-indigo-950/40 rounded transition-colors cursor-pointer shrink-0"
                           title="Open in Side-by-Side Dual Studio"
                         >
                           <BookOpen size={13} />
@@ -1599,14 +1499,14 @@ export const DocumentCanvas: React.FC<DocumentCanvasProps> = ({
                       )}
                       <button
                         onClick={() => setSelectedSourcePreview(source)}
-                        className="p-1.5 text-slate-400 hover:text-slate-700 rounded hover:bg-slate-100 cursor-pointer"
+                        className="p-1.5 text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 rounded hover:bg-slate-100 dark:hover:bg-slate-800 cursor-pointer shrink-0"
                         title="Quick Preview"
                       >
                         <Eye size={13} />
                       </button>
                       <button
                         onClick={() => onRemoveSource(source.id)}
-                        className="p-1.5 text-slate-400 hover:text-red-600 rounded hover:bg-red-50 cursor-pointer"
+                        className="p-1.5 text-slate-400 hover:text-red-600 dark:hover:text-red-400 rounded hover:bg-red-50 dark:hover:bg-red-950/40 cursor-pointer shrink-0"
                         title="Remove Source"
                       >
                         <Trash2 size={13} />
@@ -1642,6 +1542,8 @@ export const DocumentCanvas: React.FC<DocumentCanvasProps> = ({
           <AgentThinkingStudio
             activeAgentRun={activeAgentRun}
             activityHistory={activityHistory}
+            selectedRunId={selectedRunId}
+            onSelectRunId={onSelectRunId}
             onOpenLogsFolder={onOpenLogsFolder}
             onJumpToChapter={handleJumpToChapter}
           />
